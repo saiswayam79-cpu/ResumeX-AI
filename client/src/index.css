@@ -1,0 +1,39 @@
+@import "tailwindcss";
+/* Global Reset */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+
+/* Root settings */
+
+:root {
+  font-family: "Inter", Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color: #1f2937;
+  background-color: #ffffff;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+
+/* Body */
+
+body {
+  min-height: 100vh;
+  background: #ffffff;
+}
+
+
+/* React root container */
+
+#root {
+  min-height: 100vh;
+}
