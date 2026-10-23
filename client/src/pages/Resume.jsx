@@ -23,6 +23,7 @@ function Resume() {
 
   const [suggestion, setSuggestion] = useState("");
   const [loadingAI, setLoadingAI] = useState(false);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -57,30 +58,36 @@ function Resume() {
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    let error;
+    if (userError || !user) {
+      alert("Please log in before saving your resume.");
+      return;
+    }
 
     const resumeData = {
       full_name: fullName,
-      email: email,
-      phone: phone,
-      college: college,
-      degree: degree,
-      cgpa: cgpa,
-      skills: skills,
-      projects: projects,
+      email,
+      phone,
+      college,
+      degree,
+      cgpa,
+      skills,
+      projects,
     };
 
+    let error;
+
     if (id) {
-      const { error: updateError } = await supabase
+      const result = await supabase
         .from("resumes")
         .update(resumeData)
         .eq("id", id);
 
-      error = updateError;
+      error = result.error;
     } else {
-      const { error: insertError } = await supabase
+      const result = await supabase
         .from("resumes")
         .insert([
           {
@@ -89,7 +96,7 @@ function Resume() {
           },
         ]);
 
-      error = insertError;
+      error = result.error;
     }
 
     if (error) {
@@ -97,7 +104,11 @@ function Resume() {
       return;
     }
 
-    alert(id ? "Resume updated successfully!" : "Resume saved successfully!");
+    alert(
+      id
+        ? "Resume updated successfully!"
+        : "Resume saved successfully!"
+    );
 
     if (!id) {
       navigate("/my-resumes");
@@ -110,25 +121,26 @@ function Resume() {
       setSuggestion("");
 
       const resume = {
-  full_name: fullName,
-  email: email,
-  phone: phone,
-  college: college,
-  degree: degree,
-  cgpa: cgpa,
-  skills: skills,
-  projects: projects,
-};
+        full_name: fullName,
+        email,
+        phone,
+        college,
+        degree,
+        cgpa,
+        skills,
+        projects,
+      };
 
-      const response = await fetch("https://resumex-ai-rs94.onrender.com/ai/suggest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          resume: resume,
-        }),
-      });
+      const response = await fetch(
+        "https://resumex-ai-rs94.onrender.com/ai/suggest",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ resume }),
+        }
+      );
 
       const data = await response.json();
 
@@ -136,47 +148,119 @@ function Resume() {
         throw new Error(data.error || "AI request failed");
       }
 
+      if (!data.suggestion) {
+        throw new Error("No suggestions were returned.");
+      }
+
       setSuggestion(data.suggestion);
     } catch (error) {
-      console.error(error);
-      alert("Failed to get AI suggestions");
+      console.error("AI suggestions failed:", error);
+      alert(
+        error.message ||
+          "Failed to get AI suggestions. Please try again."
+      );
     } finally {
       setLoadingAI(false);
     }
   };
 
   const handleDownloadPDF = async () => {
-    const element = resumeRef.current;
+    if (downloadingPDF) return;
 
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      onclone: (doc) => {
-        const el = doc.querySelector("[data-resume]");
+    try {
+      setDownloadingPDF(true);
 
-        if (el) {
-          el.style.color = "#000000";
-          el.style.backgroundColor = "#ffffff";
-        }
-      },
-    });
+      const element = resumeRef.current;
 
-    const imgData = canvas.toDataURL("image/png");
+      if (!element) {
+        throw new Error("Resume preview was not found.");
+      }
 
-    const pdf = new jsPDF("p", "mm", "a4");
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        onclone: (doc) => {
+          const el = doc.querySelector("[data-resume]");
 
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+          if (el) {
+            el.style.color = "#000000";
+            el.style.backgroundColor = "#ffffff";
+            el.style.fontFamily = "Arial, sans-serif";
+          }
+        },
+      });
 
-    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`${fullName || "Resume"}.pdf`);
+      if (!canvas.width || !canvas.height) {
+        throw new Error("The resume preview could not be captured.");
+      }
+
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      const margin = 10;
+      const usableWidth = pageWidth - margin * 2;
+      const usableHeight = pageHeight - margin * 2;
+
+      const imageHeight =
+        (canvas.height * usableWidth) / canvas.width;
+
+      let heightLeft = imageHeight;
+      let position = margin;
+
+      pdf.addImage(
+        imgData,
+        "PNG",
+        margin,
+        position,
+        usableWidth,
+        imageHeight
+      );
+
+      heightLeft -= usableHeight;
+
+      while (heightLeft > 0) {
+        position = margin - (imageHeight - heightLeft);
+        pdf.addPage();
+
+        pdf.addImage(
+          imgData,
+          "PNG",
+          margin,
+          position,
+          usableWidth,
+          imageHeight
+        );
+
+        heightLeft -= usableHeight;
+      }
+
+      const safeName = (fullName || "Resume")
+        .trim()
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
+
+      pdf.save(`${safeName}.pdf`);
+    } catch (error) {
+      console.error("PDF download failed:", error);
+
+      alert(
+        error.message
+          ? `PDF download failed: ${error.message}`
+          : "PDF download failed. Please try again."
+      );
+    } finally {
+      setDownloadingPDF(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-100">
-
       <nav className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-
           <Link to="/dashboard">
             <h1 className="text-2xl font-bold text-blue-600">
               ResumeX AI
@@ -190,12 +274,10 @@ function Resume() {
             <ArrowLeft size={18} />
             My Resumes
           </Link>
-
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-10">
-
         <div className="mb-8">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
             {id ? "Edit Resume" : "Create Resume"}
@@ -207,14 +289,8 @@ function Resume() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-8 items-start">
-
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
-
-            <form
-              onSubmit={handleSaveResume}
-              className="space-y-8"
-            >
-
+            <form onSubmit={handleSaveResume} className="space-y-8">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">
                   Personal Information
@@ -225,7 +301,6 @@ function Resume() {
                 </p>
 
                 <div className="space-y-4">
-
                   <div>
                     <label className="block font-medium text-gray-700 mb-2">
                       Full Name
@@ -235,7 +310,7 @@ function Resume() {
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Sai Swayam Khuntia"
+                      placeholder="e.g. Your Name"
                       required
                       className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -250,7 +325,7 @@ function Resume() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. sai@example.com"
+                      placeholder="e.g. you@example.com"
                       required
                       className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -269,12 +344,10 @@ function Resume() {
                       className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-
                 </div>
               </div>
 
               <div className="border-t border-gray-200 pt-7">
-
                 <h3 className="text-xl font-bold text-gray-900">
                   Education
                 </h3>
@@ -284,7 +357,6 @@ function Resume() {
                 </p>
 
                 <div className="space-y-4">
-
                   <div>
                     <label className="block font-medium text-gray-700 mb-2">
                       College
@@ -326,12 +398,10 @@ function Resume() {
                       className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-
                 </div>
               </div>
 
               <div className="border-t border-gray-200 pt-7">
-
                 <h3 className="text-xl font-bold text-gray-900">
                   Skills
                 </h3>
@@ -347,11 +417,9 @@ function Resume() {
                   rows="4"
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-
               </div>
 
               <div className="border-t border-gray-200 pt-7">
-
                 <h3 className="text-xl font-bold text-gray-900">
                   Projects
                 </h3>
@@ -367,11 +435,9 @@ function Resume() {
                   rows="6"
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-
               </div>
 
               <div className="border-t border-gray-200 pt-7 grid sm:grid-cols-3 gap-3">
-
                 <button
                   type="submit"
                   className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
@@ -383,10 +449,11 @@ function Resume() {
                 <button
                   type="button"
                   onClick={handleDownloadPDF}
-                  className="flex items-center justify-center gap-2 bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition"
+                  disabled={downloadingPDF}
+                  className="flex items-center justify-center gap-2 bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition disabled:opacity-60"
                 >
                   <Download size={18} />
-                  Download PDF
+                  {downloadingPDF ? "Preparing PDF..." : "Download PDF"}
                 </button>
 
                 <button
@@ -398,14 +465,11 @@ function Resume() {
                   <Sparkles size={18} />
                   {loadingAI ? "Analyzing..." : "Get AI Suggestions"}
                 </button>
-
               </div>
-
             </form>
           </div>
 
           <div className="lg:sticky lg:top-24">
-
             <div className="mb-4">
               <h3 className="text-xl font-bold text-gray-900">
                 Live Preview
@@ -431,7 +495,6 @@ function Resume() {
 
             {suggestion && (
               <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-
                 <h3 className="text-xl font-bold text-gray-900">
                   AI Suggestions
                 </h3>
@@ -439,18 +502,13 @@ function Resume() {
                 <div className="mt-4 whitespace-pre-wrap text-gray-700 leading-7">
                   {suggestion}
                 </div>
-
               </div>
             )}
-
           </div>
-
         </div>
-
       </main>
     </div>
   );
 }
 
 export default Resume;
-
