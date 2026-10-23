@@ -120,7 +120,7 @@ function Resume() {
   projects: projects,
 };
 
-      const response = await fetch("http://localhost:5000/ai/suggest", {
+      const response = await fetch("https://resumex-ai-rs94.onrender.com/ai/suggest", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
