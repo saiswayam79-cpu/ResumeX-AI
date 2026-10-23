@@ -24,6 +24,7 @@ function Resume() {
   const [suggestion, setSuggestion] = useState("");
   const [loadingAI, setLoadingAI] = useState(false);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -55,72 +56,23 @@ function Resume() {
 
   const handleSaveResume = async (e) => {
     e.preventDefault();
+    setSaving(true);
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      alert("Please log in before saving your resume.");
-      return;
-    }
-
-    const resumeData = {
-      full_name: fullName,
-      email,
-      phone,
-      college,
-      degree,
-      cgpa,
-      skills,
-      projects,
-    };
-
-    let error;
-
-    if (id) {
-      const result = await supabase
-        .from("resumes")
-        .update(resumeData)
-        .eq("id", id);
-
-      error = result.error;
-    } else {
-      const result = await supabase
-        .from("resumes")
-        .insert([
-          {
-            user_id: user.id,
-            ...resumeData,
-          },
-        ]);
-
-      error = result.error;
-    }
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    alert(
-      id
-        ? "Resume updated successfully!"
-        : "Resume saved successfully!"
-    );
-
-    if (!id) {
-      navigate("/my-resumes");
-    }
-  };
-
-  const handleAISuggestions = async () => {
     try {
-      setLoadingAI(true);
-      setSuggestion("");
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      const resume = {
+      if (userError) {
+        throw userError;
+      }
+
+      if (!user) {
+        throw new Error("Please log in before saving your resume.");
+      }
+
+      const resumeData = {
         full_name: fullName,
         email,
         phone,
@@ -131,6 +83,65 @@ function Resume() {
         projects,
       };
 
+      let error;
+
+      if (id) {
+        const result = await supabase
+          .from("resumes")
+          .update(resumeData)
+          .eq("id", id);
+
+        error = result.error;
+      } else {
+        const result = await supabase
+          .from("resumes")
+          .insert([
+            {
+              user_id: user.id,
+              ...resumeData,
+            },
+          ]);
+
+        error = result.error;
+      }
+
+      if (error) {
+        throw error;
+      }
+
+      alert(
+        id
+          ? "Resume updated successfully!"
+          : "Resume saved successfully!"
+      );
+
+      if (!id) {
+        navigate("/my-resumes");
+      }
+    } catch (error) {
+      console.error("Save resume error:", error);
+      alert(error.message || "Failed to save resume.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAISuggestions = async () => {
+    try {
+      setLoadingAI(true);
+      setSuggestion("");
+
+      const resume = `
+Name: ${fullName}
+Email: ${email}
+Phone: ${phone}
+College: ${college}
+Degree: ${degree}
+CGPA: ${cgpa}
+Skills: ${skills}
+Projects: ${projects}
+`;
+
       const response = await fetch(
         "https://resumex-ai-rs94.onrender.com/ai/suggest",
         {
@@ -138,23 +149,23 @@ function Resume() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ resume }),
+          body: JSON.stringify({
+            resume,
+          }),
         }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "AI request failed");
+        throw new Error(data.error || "AI request failed.");
       }
 
-      if (!data.suggestion) {
-        throw new Error("No suggestions were returned.");
-      }
-
-      setSuggestion(data.suggestion);
+      setSuggestion(
+        data.suggestion || "No suggestions were returned."
+      );
     } catch (error) {
-      console.error("AI suggestions failed:", error);
+      console.error("AI suggestions error:", error);
       alert(
         error.message ||
           "Failed to get AI suggestions. Please try again."
@@ -165,97 +176,138 @@ function Resume() {
   };
 
   const handleDownloadPDF = async () => {
-    if (downloadingPDF) return;
+    const element = resumeRef.current;
+
+    if (!element) {
+      alert("Resume preview not found.");
+      return;
+    }
+
+    setDownloadingPDF(true);
 
     try {
-      setDownloadingPDF(true);
-
-      const element = resumeRef.current;
-
-      if (!element) {
-        throw new Error("Resume preview was not found.");
-      }
-
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
-        onclone: (doc) => {
-          const el = doc.querySelector("[data-resume]");
 
-          if (el) {
-            el.style.color = "#000000";
-            el.style.backgroundColor = "#ffffff";
-            el.style.fontFamily = "Arial, sans-serif";
-          }
+        onclone: (clonedDocument) => {
+          // Replace unsupported OKLCH colors in inline styles
+          // and embedded stylesheets before html2canvas reads them.
+          const replaceUnsupportedColors = (text) =>
+            text.replace(
+              /oklch\([^)]*\)/gi,
+              "#333333"
+            );
+
+          clonedDocument
+            .querySelectorAll("style")
+            .forEach((styleElement) => {
+              styleElement.textContent =
+                replaceUnsupportedColors(
+                  styleElement.textContent
+                );
+            });
+
+          clonedDocument
+            .querySelectorAll("[style]")
+            .forEach((el) => {
+              const currentStyle = el.getAttribute("style");
+
+              if (currentStyle) {
+                el.setAttribute(
+                  "style",
+                  replaceUnsupportedColors(currentStyle)
+                );
+              }
+            });
+
+          const clonedElement =
+            clonedDocument.querySelector("[data-resume]") ||
+            clonedDocument.body;
+
+          clonedElement.style.color = "#222222";
+          clonedElement.style.backgroundColor = "#ffffff";
+
+          // Ensure common resume text remains readable.
+          clonedElement
+            .querySelectorAll("*")
+            .forEach((el) => {
+              el.style.setProperty(
+                "color",
+                getSafeColor(el.style.color),
+                "important"
+              );
+            });
         },
       });
-
-      if (!canvas.width || !canvas.height) {
-        throw new Error("The resume preview could not be captured.");
-      }
 
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
 
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      const margin = 10;
-      const usableWidth = pageWidth - margin * 2;
-      const usableHeight = pageHeight - margin * 2;
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
       const imageHeight =
-        (canvas.height * usableWidth) / canvas.width;
+        (canvas.height * pdfWidth) / canvas.width;
 
       let heightLeft = imageHeight;
-      let position = margin;
+      let position = 0;
 
       pdf.addImage(
         imgData,
         "PNG",
-        margin,
+        0,
         position,
-        usableWidth,
+        pdfWidth,
         imageHeight
       );
 
-      heightLeft -= usableHeight;
+      heightLeft -= pdfHeight;
 
       while (heightLeft > 0) {
-        position = margin - (imageHeight - heightLeft);
+        position -= pdfHeight;
         pdf.addPage();
 
         pdf.addImage(
           imgData,
           "PNG",
-          margin,
+          0,
           position,
-          usableWidth,
+          pdfWidth,
           imageHeight
         );
 
-        heightLeft -= usableHeight;
+        heightLeft -= pdfHeight;
       }
 
       const safeName = (fullName || "Resume")
-        .trim()
-        .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
+        .trim();
 
-      pdf.save(`${safeName}.pdf`);
+      pdf.save(`${safeName || "Resume"}.pdf`);
     } catch (error) {
-      console.error("PDF download failed:", error);
+      console.error("PDF download error:", error);
 
       alert(
-        error.message
-          ? `PDF download failed: ${error.message}`
-          : "PDF download failed. Please try again."
+        `PDF download failed: ${
+          error.message || "Unknown error"
+        }`
       );
     } finally {
       setDownloadingPDF(false);
     }
   };
+
+  // Keep unsupported color functions out of inline text styles.
+  function getSafeColor(color) {
+    if (!color || /oklch|oklab|color\(/i.test(color)) {
+      return "#222222";
+    }
+
+    return color;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -310,7 +362,7 @@ function Resume() {
                       type="text"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Your Name"
+                      placeholder="e.g. Your Full Name"
                       required
                       className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -414,7 +466,7 @@ function Resume() {
                   value={skills}
                   onChange={(e) => setSkills(e.target.value)}
                   placeholder="e.g. Java, Python, React, SQL"
-                  rows="4"
+                  rows={4}
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -432,7 +484,7 @@ function Resume() {
                   value={projects}
                   onChange={(e) => setProjects(e.target.value)}
                   placeholder="Project name, technologies used, and what you built..."
-                  rows="6"
+                  rows={6}
                   className="w-full border border-gray-300 rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -440,10 +492,15 @@ function Resume() {
               <div className="border-t border-gray-200 pt-7 grid sm:grid-cols-3 gap-3">
                 <button
                   type="submit"
-                  className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+                  disabled={saving}
+                  className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-60"
                 >
                   <Save size={18} />
-                  {id ? "Update Resume" : "Save Resume"}
+                  {saving
+                    ? "Saving..."
+                    : id
+                    ? "Update Resume"
+                    : "Save Resume"}
                 </button>
 
                 <button
@@ -453,7 +510,9 @@ function Resume() {
                   className="flex items-center justify-center gap-2 bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition disabled:opacity-60"
                 >
                   <Download size={18} />
-                  {downloadingPDF ? "Preparing PDF..." : "Download PDF"}
+                  {downloadingPDF
+                    ? "Preparing PDF..."
+                    : "Download PDF"}
                 </button>
 
                 <button
@@ -463,7 +522,9 @@ function Resume() {
                   className="flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition disabled:opacity-60"
                 >
                   <Sparkles size={18} />
-                  {loadingAI ? "Analyzing..." : "Get AI Suggestions"}
+                  {loadingAI
+                    ? "Analyzing..."
+                    : "Get AI Suggestions"}
                 </button>
               </div>
             </form>
