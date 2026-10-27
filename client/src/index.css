@@ -1,39 +1,77 @@
-@import "tailwindcss";
-/* Global Reset */
 
+@import "tailwindcss";
+
+/* Global Reset */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-
-/* Root settings */
-
+/* Root Settings */
 :root {
   font-family: "Inter", Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color: #1f2937;
-  background-color: #ffffff;
+  color: #f8fafc;
+  background-color: #111111;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  font-optical-sizing: auto;
 }
 
-
-/* Body */
+/* Prevent horizontal overflow */
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+  scroll-padding-top: 80px;
+}
 
 body {
+  min-width: 320px;
   min-height: 100vh;
-  background: #ffffff;
+  width: 100%;
+  background: #111111;
+  color: #f8fafc;
+  overflow-x: hidden;
 }
 
-
-/* React root container */
-
+/* React Root */
 #root {
   min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Media elements */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Form controls inherit the app font */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* Better keyboard navigation */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Responsive text selection and focus */
+:focus-visible {
+  outline: 2px solid #6685ff;
+  outline-offset: 3px;
 }

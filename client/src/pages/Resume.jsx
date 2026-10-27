@@ -5,7 +5,7 @@ import { ArrowLeft, Save, Download, Sparkles } from "lucide-react";
 import supabase from "../lib/supabase";
 import ResumePreview from "../components/ResumePreview";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 
 function Resume() {
   const { id } = useParams();
@@ -24,7 +24,6 @@ function Resume() {
   const [suggestion, setSuggestion] = useState("");
   const [loadingAI, setLoadingAI] = useState(false);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -56,73 +55,63 @@ function Resume() {
 
   const handleSaveResume = async (e) => {
     e.preventDefault();
-    setSaving(true);
 
-    try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-      if (userError) {
-        throw userError;
-      }
+    if (userError || !user) {
+      alert("Please log in before saving your resume.");
+      return;
+    }
 
-      if (!user) {
-        throw new Error("Please log in before saving your resume.");
-      }
+    const resumeData = {
+      full_name: fullName,
+      email,
+      phone,
+      college,
+      degree,
+      cgpa,
+      skills,
+      projects,
+    };
 
-      const resumeData = {
-        full_name: fullName,
-        email,
-        phone,
-        college,
-        degree,
-        cgpa,
-        skills,
-        projects,
-      };
+    let error;
 
-      let error;
+    if (id) {
+      const { error: updateError } = await supabase
+        .from("resumes")
+        .update(resumeData)
+        .eq("id", id);
 
-      if (id) {
-        const result = await supabase
-          .from("resumes")
-          .update(resumeData)
-          .eq("id", id);
+      error = updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from("resumes")
+        .insert([
+          {
+            user_id: user.id,
+            ...resumeData,
+          },
+        ]);
 
-        error = result.error;
-      } else {
-        const result = await supabase
-          .from("resumes")
-          .insert([
-            {
-              user_id: user.id,
-              ...resumeData,
-            },
-          ]);
+      error = insertError;
+    }
 
-        error = result.error;
-      }
+    if (error) {
+      alert(error.message);
+      return;
+    }
 
-      if (error) {
-        throw error;
-      }
+    alert(
+      id
+        ? "Resume updated successfully!"
+        : "Resume saved successfully!"
+    );
 
-      alert(
-        id
-          ? "Resume updated successfully!"
-          : "Resume saved successfully!"
-      );
-
-      if (!id) {
-        navigate("/my-resumes");
-      }
-    } catch (error) {
-      console.error("Save resume error:", error);
-      alert(error.message || "Failed to save resume.");
-    } finally {
-      setSaving(false);
+    if (!id) {
+      navigate("/my-resumes");
     }
   };
 
@@ -143,131 +132,93 @@ Projects: ${projects}
 `;
 
       const response = await fetch(
-        "https://resumex-ai-rs94.onrender.com/ai/suggest",
+        "http://localhost:5000/ai/suggest",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            resume,
-          }),
+          body: JSON.stringify({ resume }),
         }
       );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "AI request failed.");
+        throw new Error(data.error || "AI request failed");
       }
 
-      setSuggestion(
-        data.suggestion || "No suggestions were returned."
-      );
+      setSuggestion(data.suggestion || "No suggestions received.");
     } catch (error) {
-      console.error("AI suggestions error:", error);
-      alert(
-        error.message ||
-          "Failed to get AI suggestions. Please try again."
-      );
+      console.error("AI suggestion error:", error);
+      alert("Failed to get AI suggestions. Please try again.");
     } finally {
       setLoadingAI(false);
     }
   };
 
+  // PDF download fix: html2canvas-pro supports modern CSS colors,
+  // including oklch(), which the previous library could not parse.
   const handleDownloadPDF = async () => {
     const element = resumeRef.current;
 
-    if (!element) {
-      alert("Resume preview not found.");
+    if (!element || downloadingPDF) {
       return;
     }
 
-    setDownloadingPDF(true);
-
     try {
+      setDownloadingPDF(true);
+
+      // Capture only the resume preview, not the form or AI suggestions.
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
+        onclone: (doc) => {
+          const clonedElement = doc.querySelector(
+            "[data-resume]"
+          );
 
-        onclone: (clonedDocument) => {
-          // Replace unsupported OKLCH colors in inline styles
-          // and embedded stylesheets before html2canvas reads them.
-          const replaceUnsupportedColors = (text) =>
-            text.replace(
-              /oklch\([^)]*\)/gi,
-              "#333333"
-            );
-
-          clonedDocument
-            .querySelectorAll("style")
-            .forEach((styleElement) => {
-              styleElement.textContent =
-                replaceUnsupportedColors(
-                  styleElement.textContent
-                );
-            });
-
-          clonedDocument
-            .querySelectorAll("[style]")
-            .forEach((el) => {
-              const currentStyle = el.getAttribute("style");
-
-              if (currentStyle) {
-                el.setAttribute(
-                  "style",
-                  replaceUnsupportedColors(currentStyle)
-                );
-              }
-            });
-
-          const clonedElement =
-            clonedDocument.querySelector("[data-resume]") ||
-            clonedDocument.body;
-
-          clonedElement.style.color = "#222222";
-          clonedElement.style.backgroundColor = "#ffffff";
-
-          // Ensure common resume text remains readable.
-          clonedElement
-            .querySelectorAll("*")
-            .forEach((el) => {
-              el.style.setProperty(
-                "color",
-                getSafeColor(el.style.color),
-                "important"
-              );
-            });
+          if (clonedElement) {
+            clonedElement.style.color = "#000000";
+            clonedElement.style.backgroundColor = "#ffffff";
+          }
         },
       });
 
       const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
 
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
       const imageHeight =
-        (canvas.height * pdfWidth) / canvas.width;
+        (canvas.height * pageWidth) / canvas.width;
 
       let heightLeft = imageHeight;
       let position = 0;
 
+      // Add the first page.
       pdf.addImage(
         imgData,
         "PNG",
         0,
         position,
-        pdfWidth,
+        pageWidth,
         imageHeight
       );
 
-      heightLeft -= pdfHeight;
+      heightLeft -= pageHeight;
 
+      // Add more pages if the resume is longer than one page.
       while (heightLeft > 0) {
-        position -= pdfHeight;
+        position = heightLeft - imageHeight;
         pdf.addPage();
 
         pdf.addImage(
@@ -275,39 +226,57 @@ Projects: ${projects}
           "PNG",
           0,
           position,
-          pdfWidth,
+          pageWidth,
           imageHeight
         );
 
-        heightLeft -= pdfHeight;
+        heightLeft -= pageHeight;
       }
 
       const safeName = (fullName || "Resume")
-        .replace(/[<>:"/\\|?*\x00-\x1F]/g, "")
-        .trim();
+        .trim()
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_");
 
-      pdf.save(`${safeName || "Resume"}.pdf`);
+      pdf.save(`${safeName}.pdf`);
     } catch (error) {
       console.error("PDF download error:", error);
 
       alert(
-        `PDF download failed: ${
-          error.message || "Unknown error"
-        }`
+        "PDF download failed. Please try again. " +
+        (error?.message || "")
       );
     } finally {
       setDownloadingPDF(false);
     }
   };
 
-  // Keep unsupported color functions out of inline text styles.
-  function getSafeColor(color) {
-    if (!color || /oklch|oklab|color\(/i.test(color)) {
-      return "#222222";
-    }
+  const inputClass =
+    "w-full border border-gray-300 rounded-lg px-4 py-3 " +
+    "focus:outline-none focus:ring-2 focus:ring-blue-500";
 
-    return color;
-  }
+  const labelClass =
+    "block font-medium text-gray-700 mb-2";
+
+  const renderInput = (
+    label,
+    value,
+    setter,
+    placeholder,
+    type = "text",
+    required = false
+  ) => (
+    <div>
+      <label className={labelClass}>{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => setter(e.target.value)}
+        placeholder={placeholder}
+        required={required}
+        className={inputClass}
+      />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -353,49 +322,30 @@ Projects: ${projects}
                 </p>
 
                 <div className="space-y-4">
-                  <div>
-                    <label className="block font-medium text-gray-700 mb-2">
-                      Full Name
-                    </label>
+                  {renderInput(
+                    "Full Name",
+                    fullName,
+                    setFullName,
+                    "e.g. Your Full Name",
+                    "text",
+                    true
+                  )}
 
-                    <input
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Your Full Name"
-                      required
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  {renderInput(
+                    "Email",
+                    email,
+                    setEmail,
+                    "e.g. you@example.com",
+                    "email",
+                    true
+                  )}
 
-                  <div>
-                    <label className="block font-medium text-gray-700 mb-2">
-                      Email
-                    </label>
-
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. you@example.com"
-                      required
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-medium text-gray-700 mb-2">
-                      Phone
-                    </label>
-
-                    <input
-                      type="text"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="e.g. 9876543210"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  {renderInput(
+                    "Phone",
+                    phone,
+                    setPhone,
+                    "e.g. 9876543210"
+                  )}
                 </div>
               </div>
 
@@ -409,47 +359,26 @@ Projects: ${projects}
                 </p>
 
                 <div className="space-y-4">
-                  <div>
-                    <label className="block font-medium text-gray-700 mb-2">
-                      College
-                    </label>
+                  {renderInput(
+                    "College",
+                    college,
+                    setCollege,
+                    "e.g. Your College Name"
+                  )}
 
-                    <input
-                      type="text"
-                      value={college}
-                      onChange={(e) => setCollege(e.target.value)}
-                      placeholder="e.g. Your College Name"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  {renderInput(
+                    "Degree",
+                    degree,
+                    setDegree,
+                    "e.g. B.Tech in CSE"
+                  )}
 
-                  <div>
-                    <label className="block font-medium text-gray-700 mb-2">
-                      Degree
-                    </label>
-
-                    <input
-                      type="text"
-                      value={degree}
-                      onChange={(e) => setDegree(e.target.value)}
-                      placeholder="e.g. B.Tech in CSE"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-medium text-gray-700 mb-2">
-                      CGPA
-                    </label>
-
-                    <input
-                      type="text"
-                      value={cgpa}
-                      onChange={(e) => setCgpa(e.target.value)}
-                      placeholder="e.g. 8.2"
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  {renderInput(
+                    "CGPA",
+                    cgpa,
+                    setCgpa,
+                    "e.g. 8.2"
+                  )}
                 </div>
               </div>
 
@@ -467,7 +396,7 @@ Projects: ${projects}
                   onChange={(e) => setSkills(e.target.value)}
                   placeholder="e.g. Java, Python, React, SQL"
                   rows={4}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`${inputClass} resize-none`}
                 />
               </div>
 
@@ -485,22 +414,17 @@ Projects: ${projects}
                   onChange={(e) => setProjects(e.target.value)}
                   placeholder="Project name, technologies used, and what you built..."
                   rows={6}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`${inputClass} resize-none`}
                 />
               </div>
 
               <div className="border-t border-gray-200 pt-7 grid sm:grid-cols-3 gap-3">
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-60"
+                  className="flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
                 >
                   <Save size={18} />
-                  {saving
-                    ? "Saving..."
-                    : id
-                    ? "Update Resume"
-                    : "Save Resume"}
+                  {id ? "Update Resume" : "Save Resume"}
                 </button>
 
                 <button
@@ -510,9 +434,7 @@ Projects: ${projects}
                   className="flex items-center justify-center gap-2 bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition disabled:opacity-60"
                 >
                   <Download size={18} />
-                  {downloadingPDF
-                    ? "Preparing PDF..."
-                    : "Download PDF"}
+                  {downloadingPDF ? "Preparing PDF..." : "Download PDF"}
                 </button>
 
                 <button
@@ -522,9 +444,7 @@ Projects: ${projects}
                   className="flex items-center justify-center gap-2 bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition disabled:opacity-60"
                 >
                   <Sparkles size={18} />
-                  {loadingAI
-                    ? "Analyzing..."
-                    : "Get AI Suggestions"}
+                  {loadingAI ? "Analyzing..." : "Get AI Suggestions"}
                 </button>
               </div>
             </form>

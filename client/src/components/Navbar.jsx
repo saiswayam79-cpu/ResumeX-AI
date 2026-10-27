@@ -1,65 +1,103 @@
+
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Menu, X } from "lucide-react";
 
 function Navbar() {
-  return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+  const [menuOpen, setMenuOpen] = useState(false);
 
-        <Link to="/">
-          <h1 className="text-2xl font-bold text-blue-600">
-            ResumeX AI
-          </h1>
+  const closeMenu = () => setMenuOpen(false);
+
+  const navLinks = [
+    { label: "Home", to: "/" },
+    { label: "Features", to: "/#features" },
+    { label: "About", to: "/#about" },
+  ];
+
+  return (
+    <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#111111]/95 shadow-sm backdrop-blur">
+      <div className="mx-auto flex min-h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        {/* Logo */}
+        <Link
+          to="/"
+          onClick={closeMenu}
+          className="shrink-0 text-xl font-bold tracking-tight text-[#7892ff] sm:text-2xl"
+        >
+          ResumeX AI
         </Link>
 
-        <ul className="flex items-center gap-7 font-medium text-gray-700">
-
-          <li>
+        {/* Desktop Navigation */}
+        <div className="hidden items-center gap-6 md:flex lg:gap-8">
+          {navLinks.map((link) => (
             <Link
-              to="/"
-              className="hover:text-blue-600 transition"
+              key={link.label}
+              to={link.to}
+              className="text-sm font-medium text-gray-300 transition hover:text-[#7892ff] lg:text-base"
             >
-              Home
+              {link.label}
             </Link>
-          </li>
+          ))}
 
-          <li>
-            <a
-              href="#features"
-              className="hover:text-blue-600 transition"
-            >
-              Features
-            </a>
-          </li>
+          <Link
+            to="/login"
+            className="text-sm font-medium text-gray-300 transition hover:text-[#7892ff] lg:text-base"
+          >
+            Login
+          </Link>
 
-          <li>
-            <a
-              href="#about"
-              className="hover:text-blue-600 transition"
-            >
-              About
-            </a>
-          </li>
+          <Link
+            to="/signup"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 lg:text-base"
+          >
+            Sign Up
+          </Link>
+        </div>
 
-          <li>
+        {/* Mobile Menu Button */}
+        <button
+          type="button"
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-white/15 text-white transition hover:bg-white/10 md:hidden"
+          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={menuOpen}
+        >
+          {menuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </div>
+
+      {/* Mobile Navigation */}
+      {menuOpen && (
+        <div className="border-t border-white/10 bg-[#171717] px-4 py-4 md:hidden sm:px-6">
+          <div className="mx-auto flex max-w-7xl flex-col gap-1">
+            {navLinks.map((link) => (
+              <Link
+                key={link.label}
+                to={link.to}
+                onClick={closeMenu}
+                className="rounded-lg px-3 py-3 text-base font-medium text-gray-200 transition hover:bg-white/5 hover:text-[#7892ff]"
+              >
+                {link.label}
+              </Link>
+            ))}
+
             <Link
               to="/login"
-              className="hover:text-blue-600 transition"
+              onClick={closeMenu}
+              className="rounded-lg px-3 py-3 text-base font-medium text-gray-200 transition hover:bg-white/5 hover:text-[#7892ff]"
             >
               Login
             </Link>
-          </li>
 
-          <li>
             <Link
               to="/signup"
-              className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition"
+              onClick={closeMenu}
+              className="mt-2 rounded-lg bg-blue-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-blue-700"
             >
               Sign Up
             </Link>
-          </li>
-
-        </ul>
-      </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
