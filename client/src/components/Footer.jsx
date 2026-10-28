@@ -1,60 +1,66 @@
+
 import { Link } from "react-router-dom";
 
 function Footer() {
   return (
-    <footer className="bg-gray-900 text-white py-10">
-      <div className="max-w-6xl mx-auto px-6">
-
-        <div className="flex flex-col md:flex-row justify-between gap-8">
-
-          <div>
-            <h2 className="text-2xl font-bold">
+    <footer className="w-full border-t border-white/10 bg-[#111111] px-4 py-8 text-white sm:px-6 sm:py-10 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl">
+        <div className="flex flex-col gap-7 sm:gap-8 md:flex-row md:items-center md:justify-between">
+          {/* Brand */}
+          <div className="min-w-0">
+            <Link
+              to="/"
+              className="inline-block text-xl font-bold tracking-tight text-[#7892ff] sm:text-2xl"
+            >
               ResumeX AI
-            </h2>
+            </Link>
 
-            <p className="text-gray-400 mt-2">
+            <p className="mt-2 text-sm leading-6 text-gray-400 sm:text-base">
               Build. Improve. Get Hired.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-x-7 gap-y-3 text-sm">
+          {/* Navigation */}
+          <nav
+            aria-label="Footer navigation"
+            className="flex flex-wrap items-center gap-x-5 gap-y-3 sm:gap-x-7"
+          >
             <Link
               to="/"
-              className="text-gray-300 hover:text-white transition"
+              className="text-sm text-gray-300 transition hover:text-white sm:text-base"
             >
               Home
             </Link>
 
             <a
-              href="#features"
-              className="text-gray-300 hover:text-white transition"
+              href="/#features"
+              className="text-sm text-gray-300 transition hover:text-white sm:text-base"
             >
               Features
             </a>
 
             <a
-              href="#about"
-              className="text-gray-300 hover:text-white transition"
+              href="/#about"
+              className="text-sm text-gray-300 transition hover:text-white sm:text-base"
             >
               About
             </a>
 
             <Link
               to="/signup"
-              className="text-gray-300 hover:text-white transition"
+              className="text-sm font-medium text-[#9aafff] transition hover:text-white sm:text-base"
             >
               Get Started
             </Link>
-          </div>
-
+          </nav>
         </div>
 
-        <div className="border-t border-gray-700 mt-8 pt-6 text-center">
-          <p className="text-gray-500 text-sm">
+        {/* Bottom */}
+        <div className="mt-7 border-t border-white/10 pt-5 sm:mt-8 sm:pt-6">
+          <p className="text-center text-xs leading-5 text-gray-500 sm:text-sm">
             ResumeX AI — Student Project
           </p>
         </div>
-
       </div>
     </footer>
   );
