@@ -2,8 +2,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Download, Sparkles } from "lucide-react";
+
 import supabase from "../lib/supabase";
 import ResumePreview from "../components/ResumePreview";
+
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas-pro";
 
@@ -25,6 +27,7 @@ function Resume() {
   const [loadingAI, setLoadingAI] = useState(false);
   const [downloadingPDF, setDownloadingPDF] = useState(false);
 
+  // Fetch existing resume when editing.
   useEffect(() => {
     if (id) {
       fetchResume();
@@ -53,6 +56,7 @@ function Resume() {
     setProjects(data.projects || "");
   };
 
+  // Save or update resume.
   const handleSaveResume = async (e) => {
     e.preventDefault();
 
@@ -115,6 +119,7 @@ function Resume() {
     }
   };
 
+  // Get AI suggestions from the deployed Render backend.
   const handleAISuggestions = async () => {
     try {
       setLoadingAI(true);
@@ -131,8 +136,16 @@ Skills: ${skills}
 Projects: ${projects}
 `;
 
+      const apiUrl = import.meta.env.VITE_API_URL;
+
+      if (!apiUrl) {
+        throw new Error(
+          "API URL is missing. Please configure VITE_API_URL."
+        );
+      }
+
       const response = await fetch(
-        "http://localhost:5000/ai/suggest",
+        `${apiUrl.replace(/\/+$/, "")}/ai/suggest`,
         {
           method: "POST",
           headers: {
@@ -148,17 +161,22 @@ Projects: ${projects}
         throw new Error(data.error || "AI request failed");
       }
 
-      setSuggestion(data.suggestion || "No suggestions received.");
+      setSuggestion(
+        data.suggestion || "No suggestions received."
+      );
     } catch (error) {
       console.error("AI suggestion error:", error);
-      alert("Failed to get AI suggestions. Please try again.");
+
+      alert(
+        "Failed to get AI suggestions. " +
+        (error.message || "Please try again.")
+      );
     } finally {
       setLoadingAI(false);
     }
   };
 
-  // PDF download fix: html2canvas-pro supports modern CSS colors,
-  // including oklch(), which the previous library could not parse.
+  // Download resume as PDF.
   const handleDownloadPDF = async () => {
     const element = resumeRef.current;
 
@@ -169,12 +187,12 @@ Projects: ${projects}
     try {
       setDownloadingPDF(true);
 
-      // Capture only the resume preview, not the form or AI suggestions.
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
+
         onclone: (doc) => {
           const clonedElement = doc.querySelector(
             "[data-resume]"
@@ -204,7 +222,7 @@ Projects: ${projects}
       let heightLeft = imageHeight;
       let position = 0;
 
-      // Add the first page.
+      // Add first page.
       pdf.addImage(
         imgData,
         "PNG",
@@ -216,9 +234,10 @@ Projects: ${projects}
 
       heightLeft -= pageHeight;
 
-      // Add more pages if the resume is longer than one page.
+      // Add additional pages if needed.
       while (heightLeft > 0) {
         position = heightLeft - imageHeight;
+
         pdf.addPage();
 
         pdf.addImage(
@@ -267,6 +286,7 @@ Projects: ${projects}
   ) => (
     <div>
       <label className={labelClass}>{label}</label>
+
       <input
         type={type}
         value={value}
@@ -312,6 +332,8 @@ Projects: ${projects}
         <div className="grid lg:grid-cols-2 gap-8 items-start">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
             <form onSubmit={handleSaveResume} className="space-y-8">
+
+              {/* Personal Information */}
               <div>
                 <h3 className="text-xl font-bold text-gray-900">
                   Personal Information
@@ -349,6 +371,7 @@ Projects: ${projects}
                 </div>
               </div>
 
+              {/* Education */}
               <div className="border-t border-gray-200 pt-7">
                 <h3 className="text-xl font-bold text-gray-900">
                   Education
@@ -382,6 +405,7 @@ Projects: ${projects}
                 </div>
               </div>
 
+              {/* Skills */}
               <div className="border-t border-gray-200 pt-7">
                 <h3 className="text-xl font-bold text-gray-900">
                   Skills
@@ -400,6 +424,7 @@ Projects: ${projects}
                 />
               </div>
 
+              {/* Projects */}
               <div className="border-t border-gray-200 pt-7">
                 <h3 className="text-xl font-bold text-gray-900">
                   Projects
@@ -418,6 +443,7 @@ Projects: ${projects}
                 />
               </div>
 
+              {/* Action Buttons */}
               <div className="border-t border-gray-200 pt-7 grid sm:grid-cols-3 gap-3">
                 <button
                   type="submit"
@@ -450,6 +476,7 @@ Projects: ${projects}
             </form>
           </div>
 
+          {/* Resume Preview */}
           <div className="lg:sticky lg:top-24">
             <div className="mb-4">
               <h3 className="text-xl font-bold text-gray-900">
@@ -474,6 +501,7 @@ Projects: ${projects}
               />
             </div>
 
+            {/* AI Suggestions Result */}
             {suggestion && (
               <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 <h3 className="text-xl font-bold text-gray-900">
