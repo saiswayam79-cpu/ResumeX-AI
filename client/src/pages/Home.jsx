@@ -1,3 +1,4 @@
+
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import Features from "../components/Features";
@@ -8,7 +9,7 @@ import Footer from "../components/Footer";
 
 function Home() {
   return (
-    <>
+    <main className="rx-page">
       <Navbar />
       <Hero />
       <Features />
@@ -16,7 +17,7 @@ function Home() {
       <WhyChooseUs />
       <CTA />
       <Footer />
-    </>
+    </main>
   );
 }
 

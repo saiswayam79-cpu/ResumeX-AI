@@ -75,3 +75,177 @@ a {
   outline: 2px solid #6685ff;
   outline-offset: 3px;
 }
+
+/* ResumeX AI landing page styles only */
+
+.rx-page {
+  min-height: 100vh;
+  width: 100%;
+  color: #19172b;
+  background: #f7f6fc;
+}
+
+.rx-container {
+  width: min(1160px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
+.rx-muted {
+  color: #77758b;
+}
+
+.rx-gradient-text {
+  color: #7955f6;
+  background: linear-gradient(100deg, #a18aff, #7c5cf6 45%, #4f72f8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.rx-gradient-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 12px;
+  color: #fff;
+  font-weight: 650;
+  background: linear-gradient(105deg, #825cf6, #5b6ff7);
+  box-shadow: 0 8px 22px rgb(107 83 239 / 22%);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.rx-gradient-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgb(107 83 239 / 30%);
+}
+
+.rx-secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 12px 20px;
+  border: 1px solid #e9e6f3;
+  border-radius: 12px;
+  color: #19172b;
+  font-weight: 600;
+  background: #fff;
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.rx-secondary-button:hover {
+  transform: translateY(-1px);
+  border-color: #b9a9ff;
+}
+
+.rx-card {
+  border: 1px solid #e9e6f3;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgb(38 24 89 / 4%);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.rx-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 36px rgb(38 24 89 / 8%);
+}
+
+.rx-field {
+  display: block;
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 14px;
+  border: 1px solid #dedbea;
+  border-radius: 11px;
+  color: #19172b;
+  background: #fff;
+}
+
+.rx-field:focus {
+  outline: none;
+  border-color: #8a6cf7;
+  box-shadow: 0 0 0 4px rgb(121 85 246 / 12%);
+}
+
+.rx-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #39364d;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rx-fade-up {
+  animation: rxFadeUp 650ms both;
+}
+
+.rx-delay-1 {
+  animation-delay: 100ms;
+}
+
+.rx-delay-2 {
+  animation-delay: 200ms;
+}
+
+.rx-delay-3 {
+  animation-delay: 300ms;
+}
+
+.rx-float {
+  animation: rxFloat 5s ease-in-out infinite;
+}
+
+@keyframes rxFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rxFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@media (max-width: 640px) {
+  .rx-container {
+    width: calc(100% - 32px);
+  }
+
+  .rx-gradient-button,
+  .rx-secondary-button {
+    min-height: 44px;
+    padding: 11px 15px;
+  }
+
+  .rx-card {
+    border-radius: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rx-fade-up,
+  .rx-float {
+    animation: none !important;
+  }
+
+  .rx-gradient-button,
+  .rx-secondary-button,
+  .rx-card {
+    transition: none !important;
+  }
+}
